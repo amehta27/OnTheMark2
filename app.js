@@ -47,7 +47,7 @@ server.use(bodyParser.json())
 //   res.redirect('/')
 // })
 server.post('/save-latlng', (req, res) => {
-  console.log(req.body.latitude)
+  console.log(req.body.latitude + "This right here")
   let latitude = req.body.latitude
   let longitude = req.body.longitude
   res.json({ longitude: longitude, latitude: latitude })
@@ -66,7 +66,7 @@ function validateLogin(req, res, next) {
   if (req.session.user) {
     next()
   } else {
-    console.log('user path')
+    // console.log('user path')
 
     res.redirect('/login')
 
@@ -78,7 +78,7 @@ function validateLogin(req, res, next) {
 // })
 
 server.get('/', (req, res) => {
-  console.log(req.session)
+  // console.log(req.session)
   res.render('home')
 })
 
@@ -89,43 +89,53 @@ server.get('/register', (req, res) => {
 })
 
 server.get('/user-page', adminLinkCheck, validateLogin, (req, res) => { })
-
+// MUST HAVE THIS LINE! Can't get coordinates to DB without it 
 // server.get('/admin', (req, res) => {
 //   res.render('admin', { persistedUser: req.session.user })
 // })
 
 server.post('/register', (req, res) => {
-  console.log("Hello")
+  // console.log("Hello")
   let username = req.body.username
   let password = req.body.password
+  let userRegEx = RegExp('([a-zA-Z0-9]{6,20})$')
+  //username can contain a-z, A-Z, and 0-9, and has to be between
+  //six and twenty digits
 
+  let pwdRegEx = RegExp('(?!^[0-9]*$)(?!^[a-zA-Z]*$)^([a-zA-Z0-9]{8,10})$')
+  //password CANNOT start with a number
+  //password CANNOT be just letters
+  //password must contain one lowercase letter, one uppercase letter, one number,
+  //and must be between eight to ten digits long
+  if (pwdRegEx.test(password) == true && userRegEx.test(username) == true) {
+    console.log("success")
+    models.User.findOne({
+      where: { username: username, }
+    }).then((user) => {
+      if (user) {
+        // console.log("failed")
+        res.render('register', { message: "User name already exists!" })
+      } else {
+        bcrypt.hash(password, SALT_ROUNDS, function (error, hash) {
+          if (error == null) {
+            let user = models.User.build({
+              username: username,
+              password: hash
+            })
+            user.save().then((savedUser) => {
+              // console.log(savedUser)
+            }).then(() => {
+              res.redirect('/login')
+            })
+          }
+        })
+      }
+    })
 
-  // server.get('/register',(req,res)=> {
-  //   res.render("register")
-  // commented out for some reason?
-
-  models.User.findOne({
-    where: { username: username, }
-  }).then((user) => {
-    if (user) {
-      console.log("failed")
-      res.render('register', { message: "User name already exists!" })
-    } else {
-      bcrypt.hash(password, SALT_ROUNDS, function (error, hash) {
-        if (error == null) {
-          let user = models.User.build({
-            username: username,
-            password: hash
-          })
-          user.save().then((savedUser) => {
-            console.log(savedUser)
-          }).then(() => {
-            res.redirect('/login')
-          })
-        }
-      })
-    }
-  })
+  } else {
+    let message = "Username or password is incorrect! Username must be 6-20 characters. Password must be 6-10 characters with one uppercase and lowercase letter and a number."
+    res.render('register', { message: message })
+  }
 })
 
 server.get('/login', (req, res) => {
@@ -189,7 +199,6 @@ server.post('/login', (req, res) => {
 
 server.get('/user-page', validateLogin, (req, res) => {
   res.render('user-page')
-
 })
 
 //logout code
@@ -408,7 +417,7 @@ server.get('/api',(req,res)=>{
     })
 })
 //remember to install JSONView chrome extension
-//result is the array; result[i].Complaint.VALUE 
+//result is the array; result[i].Complaint.VALUE
 
 // ============ NEW CODE ENDS HERE =============
 server.listen(port, () => { console.log(`Server is running on port ${port}.`) })
